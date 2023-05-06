@@ -22,3 +22,5 @@ go.work
 
 # dev files
 .idea
+logs
+

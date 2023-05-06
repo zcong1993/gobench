@@ -2,6 +2,8 @@ package gobench
 
 import (
 	"fmt"
+	"log"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -27,6 +29,11 @@ type (
 		current   time.Duration
 		bucket    taskHeap
 	}
+
+	Config struct {
+		Times    int
+		Duration time.Duration
+	}
 )
 
 func NewBench() *Bench {
@@ -37,28 +44,45 @@ func NewBench() *Bench {
 	}
 }
 
-func (b *Bench) Run(qps int, fn func()) {
+func (b *Bench) Run(config Config, fn func()) {
+	if config.Times == 0 && config.Duration == 0 {
+		log.Fatal("either times or duration should be set")
+	}
+
+	if config.Times == 0 {
+		config.Times = math.MaxInt
+	}
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	ticket := time.NewTicker(time.Second / time.Duration(qps))
-	defer ticket.Stop()
+	var timeCh <-chan time.Time
+	if config.Duration > 0 {
+		timeCh = time.After(config.Duration)
+	}
 
-	for {
+	i := 0
+	for i < config.Times {
 		select {
-		case <-ticket.C:
-			b.runSingle(fn)
-		case <-c:
-			signal.Stop(c)
-			go func() {
-				time.Sleep(time.Second)
-				openBrowser("http://" + defaultAddr)
-			}()
+		case <-timeCh:
 			goto chart
+		case <-c:
+			goto chart
+		default:
+			b.runSingle(fn)
+			i++
 		}
 	}
 
 chart:
+	fmt.Printf("run times: %d\n", i)
+
+	signal.Stop(c)
+	go func() {
+		time.Sleep(time.Second)
+		openBrowser("http://" + defaultAddr)
+	}()
+
 	http.HandleFunc("/", generateChart(b.records))
 	http.ListenAndServe(defaultAddr, nil)
 }

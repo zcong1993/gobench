@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/kevwan/gobench"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -19,7 +21,9 @@ func main() {
 	logx.MustSetup(c)
 
 	b := gobench.NewBench()
-	b.Run(100000, func() {
+	b.Run(gobench.Config{
+		Duration: 30 * time.Second,
+	}, func() {
 		logx.Info("hello world")
 	})
 }
